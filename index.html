@@ -53,7 +53,10 @@
 
       const key = getKey(phrase);
 
-      const encrypted = CryptoJS.AES.encrypt(input, key, {
+      // Normalize line endings to match Java (\n)
+      const normalizedInput = input.replace(/\r\n/g, "\n");
+
+      const encrypted = CryptoJS.AES.encrypt(normalizedInput, key, {
         iv: iv,
         mode: CryptoJS.mode.CBC,
         padding: CryptoJS.pad.Pkcs7
@@ -73,13 +76,16 @@
 
       const key = getKey(phrase);
 
-      const decrypted = CryptoJS.AES.decrypt(input, key, {
+      const decrypted = CryptoJS.AES.decrypt(input.trim(), key, {
         iv: iv,
         mode: CryptoJS.mode.CBC,
         padding: CryptoJS.pad.Pkcs7
       });
 
-      document.getElementById("output").value = decrypted.toString(CryptoJS.enc.Utf8);
+      let result = decrypted.toString(CryptoJS.enc.Utf8);
+      // Restore line endings for textarea display
+      result = result.replace(/\n/g, "\r\n");
+      document.getElementById("output").value = result;
     } catch (e) {
       alert("Decrypt error: " + e);
       console.error(e);

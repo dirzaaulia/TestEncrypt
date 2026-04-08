@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Encrypt / Decrypt Tool</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background:#0f172a; color:#e2e8f0; }
+    textarea { width: 100%; height: 150px; margin: 10px 0; padding: 10px; border-radius: 8px; border: none; }
+    button { padding: 10px 16px; margin-right: 10px; border-radius: 8px; border: none; cursor: pointer; }
+    .container { max-width: 800px; margin: auto; }
+    .card { background:#1e293b; padding:20px; border-radius:16px; margin-bottom:20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🔐 AES Encrypt / Decrypt (Base64)</h2>
+
+    <div class="card">
+      <label>Secret Phrase (STRING_PRASE)</label>
+      <input id="phrase" style="width:100%; padding:10px; border-radius:8px; border:none; margin-top:5px;" />
+    </div>
+
+    <div class="card">
+      <label>Input (multi-line supported)</label>
+      <textarea id="input"></textarea>
+
+      <button onclick="encrypt()">Encrypt</button>
+      <button onclick="decrypt()">Decrypt</button>
+
+      <label>Output</label>
+      <textarea id="output"></textarea>
+    </div>
+  </div>
+
+  <script>
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    // simulate rawSecretKey (16 bytes IV)
+    const rawSecretKey = new Uint8Array(16).fill(1); // replace with real values
+
+    async function shaDigest(text) {
+      const data = encoder.encode(text);
+      const hash = await crypto.subtle.digest("SHA-256", data);
+      return new Uint8Array(hash).slice(0, 16); // mimic shorter key if needed
+    }
+
+    async function getKey(phrase) {
+      const keyBytes = await shaDigest(phrase);
+      return crypto.subtle.importKey(
+        "raw",
+        keyBytes,
+        { name: "AES-CBC" },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    function base64Encode(buffer) {
+      return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+    }
+
+    function base64Decode(base64) {
+      const binary = atob(base64);
+      return new Uint8Array([...binary].map(c => c.charCodeAt(0)));
+    }
+
+    async function encrypt() {
+      try {
+        const phrase = document.getElementById("phrase").value;
+        const input = document.getElementById("input").value;
+
+        const key = await getKey(phrase);
+        const iv = rawSecretKey;
+
+        const encrypted = await crypto.subtle.encrypt(
+          { name: "AES-CBC", iv },
+          key,
+          encoder.encode(input)
+        );
+
+        document.getElementById("output").value = base64Encode(encrypted);
+      } catch (e) {
+        alert("Encrypt error: " + e);
+      }
+    }
+
+    async function decrypt() {
+      try {
+        const phrase = document.getElementById("phrase").value;
+        const input = document.getElementById("input").value;
+
+        const key = await getKey(phrase);
+        const iv = rawSecretKey;
+
+        const decrypted = await crypto.subtle.decrypt(
+          { name: "AES-CBC", iv },
+          key,
+          base64Decode(input)
+        );
+
+        document.getElementById("output").value = decoder.decode(decrypted);
+      } catch (e) {
+        alert("Decrypt error: " + e);
+      }
+    }
+  </script>
+</body>
+</html>

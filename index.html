@@ -56,18 +56,27 @@
       return data.slice(0, end);
     } // replace with real values
 
-    async function shaDigest(text) {
+    // MD5 digest (matches Android)
+    async function md5Digest(text) {
       const data = encoder.encode(text);
-      const hash = await crypto.subtle.digest("SHA-256", data);
-      return new Uint8Array(hash); // mimic shorter key if needed
+      const hash = await crypto.subtle.digest("MD5", data);
+      return new Uint8Array(hash); // 16 bytes (AES-128)
     }
 
     async function getKey(phrase) {
-      const keyBytes = await shaDigest(phrase);
+      const keyBytes = await md5Digest(phrase);
       return crypto.subtle.importKey(
         "raw",
         keyBytes,
         { name: "AES-CBC" },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    },
         false,
         ["encrypt", "decrypt"]
       );
@@ -93,7 +102,7 @@
         const encrypted = await crypto.subtle.encrypt(
           { name: "AES-CBC", iv },
           key,
-          padZero(encoder.encode(input))
+          encoder.encode(input)
         );
 
         document.getElementById("output").value = base64Encode(encrypted);
@@ -116,7 +125,7 @@
           base64Decode(input)
         );
 
-        document.getElementById("output").value = decoder.decode(unpadZero(new Uint8Array(decrypted)));
+        document.getElementById("output").value = decoder.decode(new Uint8Array(decrypted));
       } catch (e) {
         alert("Decrypt error: " + e);
       }

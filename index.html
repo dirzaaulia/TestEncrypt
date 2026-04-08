@@ -33,178 +33,58 @@
     </div>
   </div>
 
-  <script>
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<script>
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
 
-    // simulate rawSecretKey (16 bytes IV)
-    const rawSecretKey = new Uint8Array(16).fill(0);
+  // IV = 16 bytes 0x00
+  const iv = CryptoJS.enc.Hex.parse("00000000000000000000000000000000");
 
-    // Ensure plaintext length is multiple of 16 (NoPadding compatibility)
-    function padZero(data) {
-      const blockSize = 16;
-      const padLength = blockSize - (data.length % blockSize);
-      if (padLength === blockSize) return data;
-      const padded = new Uint8Array(data.length + padLength);
-      padded.set(data);
-      return padded;
+  function getKey(phrase) {
+    // MD5 → 16 bytes
+    return CryptoJS.MD5(phrase);
+  }
+
+  function encrypt() {
+    try {
+      const phrase = document.getElementById("phrase").value;
+      const input = document.getElementById("input").value;
+
+      const key = getKey(phrase);
+
+      const encrypted = CryptoJS.AES.encrypt(input, key, {
+        iv: iv,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7
+      });
+
+      document.getElementById("output").value = encrypted.toString();
+    } catch (e) {
+      alert("Encrypt error: " + e);
+      console.error(e);
     }
+  }
 
-    function unpadZero(data) {
-      let end = data.length;
-      while (end > 0 && data[end - 1] === 0) end--;
-      return data.slice(0, end);
-    } // replace with real values
+  function decrypt() {
+    try {
+      const phrase = document.getElementById("phrase").value;
+      const input = document.getElementById("input").value;
 
-    // MD5 digest (matches Android)
-    // MD5 digest (WebCrypto does NOT support MD5, so we implement it manually)
-    function md5Digest(text) {
-      function md5cycle(x, k) {
-        let [a, b, c, d] = x;
+      const key = getKey(phrase);
 
-        function ff(a, b, c, d, x, s, t) {
-          a = a + ((b & c) | (~b & d)) + x + t;
-          return ((a << s) | (a >>> (32 - s))) + b;
-        }
-        function gg(a, b, c, d, x, s, t) {
-          a = a + ((b & d) | (c & ~d)) + x + t;
-          return ((a << s) | (a >>> (32 - s))) + b;
-        }
-        function hh(a, b, c, d, x, s, t) {
-          a = a + (b ^ c ^ d) + x + t;
-          return ((a << s) | (a >>> (32 - s))) + b;
-        }
-        function ii(a, b, c, d, x, s, t) {
-          a = a + (c ^ (b | ~d)) + x + t;
-          return ((a << s) | (a >>> (32 - s))) + b;
-        }
+      const decrypted = CryptoJS.AES.decrypt(input, key, {
+        iv: iv,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7
+      });
 
-        a = ff(a, b, c, d, k[0], 7, -680876936);
-        d = ff(d, a, b, c, k[1], 12, -389564586);
-        c = ff(c, d, a, b, k[2], 17, 606105819);
-        b = ff(b, c, d, a, k[3], 22, -1044525330);
-
-        x[0] = (x[0] + a) | 0;
-        x[1] = (x[1] + b) | 0;
-        x[2] = (x[2] + c) | 0;
-        x[3] = (x[3] + d) | 0;
-      }
-
-      function md5blk(s) {
-        const md5blks = [];
-        for (let i = 0; i < 64; i += 4) {
-          md5blks[i >> 2] =
-            s.charCodeAt(i) +
-            (s.charCodeAt(i + 1) << 8) +
-            (s.charCodeAt(i + 2) << 16) +
-            (s.charCodeAt(i + 3) << 24);
-        }
-        return md5blks;
-      }
-
-      function md51(s) {
-        let n = s.length;
-        let state = [1732584193, -271733879, -1732584194, 271733878];
-        let i;
-        for (i = 64; i <= n; i += 64) {
-          md5cycle(state, md5blk(s.substring(i - 64, i)));
-        }
-        s = s.substring(i - 64);
-        const tail = new Array(16).fill(0);
-        for (i = 0; i < s.length; i++) tail[i >> 2] |= s.charCodeAt(i) << ((i % 4) << 3);
-        tail[i >> 2] |= 0x80 << ((i % 4) << 3);
-        if (i > 55) {
-          md5cycle(state, tail);
-          tail.fill(0);
-        }
-        tail[14] = n * 8;
-        md5cycle(state, tail);
-        return state;
-      }
-
-      function rhex(n) {
-        const s = "0123456789abcdef";
-        let j, str = "";
-        for (j = 0; j < 4; j++)
-          str += s.charAt((n >> (j * 8 + 4)) & 0x0f) + s.charAt((n >> (j * 8)) & 0x0f);
-        return str;
-      }
-
-      function hex(x) {
-        return x.map(rhex).join("");
-      }
-
-      const hexStr = hex(md51(text));
-      const result = new Uint8Array(16);
-      for (let i = 0; i < 16; i++) {
-        result[i] = parseInt(hexStr.substr(i * 2, 2), 16);
-      }
-      return result;
+      document.getElementById("output").value = decrypted.toString(CryptoJS.enc.Utf8);
+    } catch (e) {
+      alert("Decrypt error: " + e);
+      console.error(e);
     }
-
-    async function getKey(phrase) {
-      const keyBytes = md5Digest(phrase);
-      return crypto.subtle.importKey(
-        "raw",
-        keyBytes,
-        { name: "AES-CBC" },
-        false,
-        ["encrypt", "decrypt"]
-      );
-    },
-        false,
-        ["encrypt", "decrypt"]
-      );
-    }
-
-    function base64Encode(buffer) {
-      return btoa(String.fromCharCode(...new Uint8Array(buffer)));
-    }
-
-    function base64Decode(base64) {
-      const binary = atob(base64);
-      return new Uint8Array([...binary].map(c => c.charCodeAt(0)));
-    }
-
-    async function encrypt() {
-      try {
-        const phrase = document.getElementById("phrase").value;
-        const input = document.getElementById("input").value;
-
-        const key = await getKey(phrase);
-        const iv = rawSecretKey;
-
-        const encrypted = await crypto.subtle.encrypt(
-          { name: "AES-CBC", iv },
-          key,
-          encoder.encode(input)
-        );
-
-        document.getElementById("output").value = base64Encode(encrypted);
-      } catch (e) {
-        alert("Encrypt error: " + e);
-      }
-    }
-
-    async function decrypt() {
-      try {
-        const phrase = document.getElementById("phrase").value;
-        const input = document.getElementById("input").value;
-
-        const key = await getKey(phrase);
-        const iv = rawSecretKey;
-
-        const decrypted = await crypto.subtle.decrypt(
-          { name: "AES-CBC", iv },
-          key,
-          base64Decode(input)
-        );
-
-        document.getElementById("output").value = decoder.decode(new Uint8Array(decrypted));
-      } catch (e) {
-        alert("Decrypt error: " + e);
-      }
-    }
-  </script>
+  }
+</script>
 </body>
 </html>

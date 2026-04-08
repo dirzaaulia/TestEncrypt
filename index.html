@@ -14,10 +14,10 @@
 </head>
 <body>
   <div class="container">
-    <h2>🔐 AES Encrypt / Decrypt (Base64)</h2>
+    <h2>🔐 AES Encrypt / Decrypt (Android Compatible)</h2>
 
     <div class="card">
-      <label>Secret Phrase (STRING_PRASE)</label>
+      <label>Secret Phrase</label>
       <input id="phrase" style="width:100%; padding:10px; border-radius:8px; border:none; margin-top:5px;" />
     </div>
 
@@ -34,63 +34,64 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
-<script>
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
+  <script>
+    const iv = CryptoJS.enc.Hex.parse("00000000000000000000000000000000");
 
-  // IV = 16 bytes 0x00
-  const iv = CryptoJS.enc.Hex.parse("00000000000000000000000000000000");
-
-  function getKey(phrase) {
-    // MD5 → 16 bytes
-    return CryptoJS.MD5(phrase);
-  }
-
-  function encrypt() {
-    try {
-      const phrase = document.getElementById("phrase").value;
-      const input = document.getElementById("input").value;
-
-      const key = getKey(phrase);
-
-      // Normalize line endings to match Java (\n)
-      const normalizedInput = input.replace(/\r\n/g, "\n");
-
-      const encrypted = CryptoJS.AES.encrypt(normalizedInput, key, {
-        iv: iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-
-      document.getElementById("output").value = encrypted.toString();
-    } catch (e) {
-      alert("Encrypt error: " + e);
-      console.error(e);
+    function getKey(phrase) {
+      return CryptoJS.MD5(phrase);
     }
-  }
 
-  function decrypt() {
-    try {
-      const phrase = document.getElementById("phrase").value;
-      const input = document.getElementById("input").value;
-
-      const key = getKey(phrase);
-
-      const decrypted = CryptoJS.AES.decrypt(input.trim(), key, {
-        iv: iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7
-      });
-
-      let result = decrypted.toString(CryptoJS.enc.Utf8);
-      // Restore line endings for textarea display
-      result = result.replace(/\n/g, "\r\n");
-      document.getElementById("output").value = result;
-    } catch (e) {
-      alert("Decrypt error: " + e);
-      console.error(e);
+    function normalize(input) {
+      return input.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     }
-  }
-</script>
+
+    function encrypt() {
+      try {
+        const phrase = document.getElementById("phrase").value;
+        const input = document.getElementById("input").value;
+
+        const key = getKey(phrase);
+        const normalized = normalize(input);
+
+        const wordArray = CryptoJS.enc.Utf8.parse(normalized);
+
+        const encrypted = CryptoJS.AES.encrypt(wordArray, key, {
+          iv: iv,
+          mode: CryptoJS.mode.CBC,
+          padding: CryptoJS.pad.Pkcs7
+        });
+
+        document.getElementById("output").value = encrypted.toString();
+      } catch (e) {
+        alert("Encrypt error: " + e);
+        console.error(e);
+      }
+    }
+
+    function decrypt() {
+      try {
+        const phrase = document.getElementById("phrase").value;
+        const input = document.getElementById("input").value.trim();
+
+        const key = getKey(phrase);
+
+        const decrypted = CryptoJS.AES.decrypt(input, key, {
+          iv: iv,
+          mode: CryptoJS.mode.CBC,
+          padding: CryptoJS.pad.Pkcs7
+        });
+
+        let result = CryptoJS.enc.Utf8.stringify(decrypted);
+
+        // restore for textarea
+        result = result.replace(/\n/g, "\r\n");
+
+        document.getElementById("output").value = result;
+      } catch (e) {
+        alert("Decrypt error: " + e);
+        console.error(e);
+      }
+    }
+  </script>
 </body>
 </html>

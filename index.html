@@ -14,7 +14,7 @@
 </head>
 <body>
   <div class="container">
-    <h2>🔐 AES Encrypt / Decrypt (Android Compatible)</h2>
+    <h2>🔐 AES Encrypt / Decrypt (Line-safe)</h2>
 
     <div class="card">
       <label>Secret Phrase</label>
@@ -36,13 +36,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
   <script>
     const iv = CryptoJS.enc.Hex.parse("00000000000000000000000000000000");
+    const SEPARATOR = ":::";
 
     function getKey(phrase) {
       return CryptoJS.MD5(phrase);
-    }
-
-    function normalize(input) {
-      return input.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     }
 
     function encrypt() {
@@ -51,17 +48,18 @@
         const input = document.getElementById("input").value;
 
         const key = getKey(phrase);
-        const normalized = normalize(input);
+        const lines = input.split(/\r?\n/);
 
-        const wordArray = CryptoJS.enc.Utf8.parse(normalized);
-
-        const encrypted = CryptoJS.AES.encrypt(wordArray, key, {
-          iv: iv,
-          mode: CryptoJS.mode.CBC,
-          padding: CryptoJS.pad.Pkcs7
+        const encryptedLines = lines.map(line => {
+          const wordArray = CryptoJS.enc.Utf8.parse(line);
+          return CryptoJS.AES.encrypt(wordArray, key, {
+            iv: iv,
+            mode: CryptoJS.mode.CBC,
+            padding: CryptoJS.pad.Pkcs7
+          }).toString();
         });
 
-        document.getElementById("output").value = encrypted.toString();
+        document.getElementById("output").value = encryptedLines.join(SEPARATOR);
       } catch (e) {
         alert("Encrypt error: " + e);
         console.error(e);
@@ -74,19 +72,18 @@
         const input = document.getElementById("input").value.trim();
 
         const key = getKey(phrase);
+        const parts = input.split(SEPARATOR);
 
-        const decrypted = CryptoJS.AES.decrypt(input, key, {
-          iv: iv,
-          mode: CryptoJS.mode.CBC,
-          padding: CryptoJS.pad.Pkcs7
+        const decryptedLines = parts.map(part => {
+          const decrypted = CryptoJS.AES.decrypt(part, key, {
+            iv: iv,
+            mode: CryptoJS.mode.CBC,
+            padding: CryptoJS.pad.Pkcs7
+          });
+          return CryptoJS.enc.Utf8.stringify(decrypted);
         });
 
-        let result = CryptoJS.enc.Utf8.stringify(decrypted);
-
-        // restore for textarea
-        result = result.replace(/\n/g, "\r\n");
-
-        document.getElementById("output").value = result;
+        document.getElementById("output").value = decryptedLines.join("\n");
       } catch (e) {
         alert("Decrypt error: " + e);
         console.error(e);

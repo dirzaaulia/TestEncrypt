@@ -38,7 +38,23 @@
     const decoder = new TextDecoder();
 
     // simulate rawSecretKey (16 bytes IV)
-    const rawSecretKey = new Uint8Array(16).fill(0); // replace with real values
+    const rawSecretKey = new Uint8Array(16).fill(0);
+
+    // Ensure plaintext length is multiple of 16 (NoPadding compatibility)
+    function padZero(data) {
+      const blockSize = 16;
+      const padLength = blockSize - (data.length % blockSize);
+      if (padLength === blockSize) return data;
+      const padded = new Uint8Array(data.length + padLength);
+      padded.set(data);
+      return padded;
+    }
+
+    function unpadZero(data) {
+      let end = data.length;
+      while (end > 0 && data[end - 1] === 0) end--;
+      return data.slice(0, end);
+    } // replace with real values
 
     async function shaDigest(text) {
       const data = encoder.encode(text);
@@ -77,7 +93,7 @@
         const encrypted = await crypto.subtle.encrypt(
           { name: "AES-CBC", iv },
           key,
-          encoder.encode(input)
+          padZero(encoder.encode(input))
         );
 
         document.getElementById("output").value = base64Encode(encrypted);
@@ -100,7 +116,7 @@
           base64Decode(input)
         );
 
-        document.getElementById("output").value = decoder.decode(decrypted);
+        document.getElementById("output").value = decoder.decode(unpadZero(new Uint8Array(decrypted)));
       } catch (e) {
         alert("Decrypt error: " + e);
       }
